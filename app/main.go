@@ -17,9 +17,15 @@ func main() {
 			os.Exit(1)
 		}
 		cmd = strings.TrimSpace(cmd)
-		if cmd == "exit" {
+		args := strings.Split(cmd, " ")
+		cmd, args = args[0], args[1:]
+		switch cmd {
+		case "exit":
 			return
+		case "echo":
+			fmt.Println(strings.Join(args, " "))
+		default:
+			fmt.Printf("%s: command not found\n", cmd)
 		}
-		fmt.Printf("%s: command not found\n", cmd)
 	}
 }
