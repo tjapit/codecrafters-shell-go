@@ -1,0 +1,20 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
+
+func main() {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("$ ")
+		cmd, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("%s: command not found\n", cmd[:len(cmd)-1])
+	}
+}
