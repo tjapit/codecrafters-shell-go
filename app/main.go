@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"slices"
 	"strings"
 )
@@ -28,10 +29,16 @@ func main() {
 		case "echo":
 			fmt.Println(strings.Join(args, " "))
 		case "type":
-			if found := slices.Index(builtin, args[0]); found != -1 {
-				fmt.Printf("%s is a shell builtin\n", args[0])
+			lookup := args[0]
+			if found := slices.Index(builtin, lookup); found != -1 {
+				fmt.Printf("%s is a shell builtin\n", lookup)
 			} else {
-				fmt.Printf("%s: not found\n", args[0])
+				path, err := exec.LookPath(lookup)
+				if err != nil {
+					fmt.Printf("%s: not found\n", lookup)
+					continue
+				}
+				fmt.Printf("%s is %s\n", lookup, path)
 			}
 		default:
 			fmt.Printf("%s: command not found\n", cmd)
