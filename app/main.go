@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"slices"
 	"strings"
 )
@@ -29,19 +28,51 @@ func main() {
 		case "echo":
 			fmt.Println(strings.Join(args, " "))
 		case "type":
-			lookup := args[0]
-			if found := slices.Index(builtin, lookup); found != -1 {
-				fmt.Printf("%s is a shell builtin\n", lookup)
+			lookupCmd := args[0]
+			if found := slices.Index(builtin, lookupCmd); found != -1 {
+				fmt.Printf("%s is a shell builtin\n", lookupCmd)
+			} else if fullpath := lookPath(lookupCmd); fullpath != "" {
+				fmt.Printf("%s is %s\n", lookupCmd, fullpath)
 			} else {
-				path, err := exec.LookPath(lookup)
-				if err != nil {
-					fmt.Printf("%s: not found\n", lookup)
-					continue
-				}
-				fmt.Printf("%s is %s\n", lookup, path)
+				fmt.Printf("%s: not found\n", lookupCmd)
 			}
 		default:
 			fmt.Printf("%s: command not found\n", cmd)
 		}
 	}
+}
+
+// lookPath returns the fullpath of the executable if found in the environmment
+// PATH variable, empty string otherwise
+func lookPath(cmd string) string {
+	if envPaths, ok := os.LookupEnv("PATH"); ok {
+		fullpath := ""
+		for _, path := range strings.Split(envPaths, string(os.PathListSeparator)) {
+			fullpath = findCmd(path, cmd)
+			if fullpath != "" {
+				return fullpath
+			}
+		}
+	}
+	return ""
+}
+
+// findCmd returns the fullpath of the executable in the given path if found,
+// empty string otherwise
+func findCmd(path, cmd string) string {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			return ""
+		}
+		perm := info.Mode().Perm()
+		if entry.Name() == cmd && perm&0111 != 0 {
+			return path + "/" + cmd
+		}
+	}
+	return ""
 }
