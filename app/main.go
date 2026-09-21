@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"slices"
 	"strings"
 )
@@ -37,7 +38,19 @@ func main() {
 				fmt.Printf("%s: not found\n", lookupCmd)
 			}
 		default:
-			fmt.Printf("%s: command not found\n", cmd)
+			if fullpath := lookPath(cmd); fullpath != "" {
+				execCmd := exec.Command(cmd, args...)
+				out, err := execCmd.Output()
+				if err != nil {
+					fmt.Println("error executing command: " + cmd)
+					return
+				}
+				for _, v := range out {
+					fmt.Printf("%v", string(v))
+				}
+			} else {
+				fmt.Printf("%s: command not found\n", cmd)
+			}
 		}
 	}
 }
