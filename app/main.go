@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var builtin = []string{"echo", "exit", "type"}
+var builtin = []string{"echo", "exit", "type", "pwd"}
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
@@ -37,6 +37,13 @@ func main() {
 			} else {
 				fmt.Printf("%s: not found\n", lookupCmd)
 			}
+		case "pwd":
+			cwd, err := os.Getwd()
+			if err != nil {
+				fmt.Println("error executing command: " + cmd)
+				return
+			}
+			fmt.Println(cwd)
 		default:
 			if fullpath := lookPath(cmd); fullpath != "" {
 				execCmd := exec.Command(cmd, args...)
