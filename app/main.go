@@ -5,14 +5,32 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"slices"
 	"strings"
 )
 
-var builtin = []string{"echo", "exit", "type", "pwd"}
+type builtin_fn func(cmd string, args []string)
+type BuiltinMap map[string]builtin_fn
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
+	builtins := BuiltinMap{
+		"exit": func(cmd string, args []string) { os.Exit(0) },
+		"echo": func(cmd string, args []string) { fmt.Println(strings.Join(args, " ")) },
+		"pwd": func(cmd string, args []string) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				fmt.Println("error executing command: " + cmd)
+				return
+			}
+			fmt.Println(cwd)
+		},
+		"cd": func(cmd string, args []string) {
+			err := os.Chdir(args[0])
+			if err != nil {
+				fmt.Printf("cd: %s: No such file or directory\n", args[0])
+			}
+		},
+	}
 	for {
 		fmt.Print("$ ")
 		cmd, err := reader.ReadString('\n')
@@ -20,31 +38,20 @@ func main() {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
-		cmd = strings.TrimSpace(cmd)
-		args := strings.Split(cmd, " ")
+		args := strings.Split(strings.TrimSpace(cmd), " ")
 		cmd, args = args[0], args[1:]
-		switch cmd {
-		case "exit":
-			return
-		case "echo":
-			fmt.Println(strings.Join(args, " "))
-		case "type":
+		if builtin := builtins[cmd]; builtin != nil {
+			builtin(cmd, args)
+		} else if cmd == "type" {
 			lookupCmd := args[0]
-			if found := slices.Index(builtin, lookupCmd); found != -1 {
+			if found := builtins[lookupCmd]; found != nil || lookupCmd == "type" {
 				fmt.Printf("%s is a shell builtin\n", lookupCmd)
 			} else if fullpath := lookPath(lookupCmd); fullpath != "" {
 				fmt.Printf("%s is %s\n", lookupCmd, fullpath)
 			} else {
 				fmt.Printf("%s: not found\n", lookupCmd)
 			}
-		case "pwd":
-			cwd, err := os.Getwd()
-			if err != nil {
-				fmt.Println("error executing command: " + cmd)
-				return
-			}
-			fmt.Println(cwd)
-		default:
+		} else {
 			if fullpath := lookPath(cmd); fullpath != "" {
 				execCmd := exec.Command(cmd, args...)
 				out, err := execCmd.Output()
