@@ -8,27 +8,30 @@ import (
 	"strings"
 )
 
-type builtin_fn func(cmd string, args []string)
-type BuiltinMap map[string]builtin_fn
+type (
+	builtin_fn func(cmd string, args []string)
+	BuiltinMap map[string]builtin_fn
+	Shell      struct{ builtins BuiltinMap }
+)
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-	builtins := BuiltinMap{
-		"exit": func(cmd string, args []string) { os.Exit(0) },
-		"echo": func(cmd string, args []string) { fmt.Println(strings.Join(args, " ")) },
-		"pwd": func(cmd string, args []string) {
-			cwd, err := os.Getwd()
-			if err != nil {
-				fmt.Println("error executing command: " + cmd)
-				return
-			}
-			fmt.Println(cwd)
-		},
-		"cd": func(cmd string, args []string) {
-			err := os.Chdir(args[0])
-			if err != nil {
-				fmt.Printf("cd: %s: No such file or directory\n", args[0])
-			}
+	shell := Shell{
+		builtins: BuiltinMap{
+			"exit": func(cmd string, args []string) { os.Exit(0) },
+			"echo": func(cmd string, args []string) { fmt.Println(strings.Join(args, " ")) },
+			"pwd": func(cmd string, args []string) {
+				if cwd, err := os.Getwd(); err != nil {
+					fmt.Println("error executing command: " + cmd)
+				} else {
+					fmt.Println(cwd)
+				}
+			},
+			"cd": func(cmd string, args []string) {
+				if err := os.Chdir(args[0]); err != nil {
+					fmt.Printf("cd: %s: No such file or directory\n", args[0])
+				}
+			},
 		},
 	}
 	for {
@@ -40,31 +43,35 @@ func main() {
 		}
 		args := strings.Split(strings.TrimSpace(cmd), " ")
 		cmd, args = args[0], args[1:]
-		if builtin := builtins[cmd]; builtin != nil {
-			builtin(cmd, args)
-		} else if cmd == "type" {
-			lookupCmd := args[0]
-			if found := builtins[lookupCmd]; found != nil || lookupCmd == "type" {
-				fmt.Printf("%s is a shell builtin\n", lookupCmd)
-			} else if fullpath := lookPath(lookupCmd); fullpath != "" {
-				fmt.Printf("%s is %s\n", lookupCmd, fullpath)
-			} else {
-				fmt.Printf("%s: not found\n", lookupCmd)
-			}
+		shell.handleCmd(cmd, args)
+	}
+}
+
+func (s *Shell) handleCmd(cmd string, args []string) {
+	if builtin := s.builtins[cmd]; builtin != nil {
+		builtin(cmd, args)
+	} else if cmd == "type" {
+		lookupCmd := args[0]
+		if found := s.builtins[lookupCmd]; found != nil || lookupCmd == "type" {
+			fmt.Printf("%s is a shell builtin\n", lookupCmd)
+		} else if fullpath := lookPath(lookupCmd); fullpath != "" {
+			fmt.Printf("%s is %s\n", lookupCmd, fullpath)
 		} else {
-			if fullpath := lookPath(cmd); fullpath != "" {
-				execCmd := exec.Command(cmd, args...)
-				out, err := execCmd.Output()
-				if err != nil {
-					fmt.Println("error executing command: " + cmd)
-					return
-				}
+			fmt.Printf("%s: not found\n", lookupCmd)
+		}
+	} else {
+		if fullpath := lookPath(cmd); fullpath != "" {
+			execCmd := exec.Command(cmd, args...)
+			if out, err := execCmd.Output(); err != nil {
+				fmt.Println("error executing command: " + cmd)
+				return
+			} else {
 				for _, v := range out {
 					fmt.Printf("%v", string(v))
 				}
-			} else {
-				fmt.Printf("%s: command not found\n", cmd)
 			}
+		} else {
+			fmt.Printf("%s: command not found\n", cmd)
 		}
 	}
 }
