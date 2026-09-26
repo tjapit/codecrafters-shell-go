@@ -28,7 +28,11 @@ func main() {
 				}
 			},
 			"cd": func(cmd string, args []string) {
-				if err := os.Chdir(args[0]); err != nil {
+				path := args[0]
+				if path == "~" {
+					path = os.Getenv("HOME")
+				}
+				if err := os.Chdir(path); err != nil {
 					fmt.Printf("cd: %s: No such file or directory\n", args[0])
 				}
 			},
